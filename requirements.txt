@@ -8,3 +8,4 @@ joypy
 reportlab
 wordcloud
 folium
+streamlit_folium
