@@ -7,3 +7,4 @@ plotly
 joypy
 reportlab
 wordcloud
+folium
