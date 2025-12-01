@@ -36,9 +36,8 @@ An interactive dashboard to explore and visualize biodiversity data from the GBI
 
 ## 🌐 Live Demo
 
-*(If you have deployed your app to Streamlit Cloud, paste the link here. Otherwise, you can remove this section or leave it as a placeholder)*
-
-[**Open Dashboard**](#) *(Link coming soon)*
+[Open the Dashboard](https://biodiversity-gbif-dataset-dashboard.streamlit.app/)
+ 
 
 ## 📂 Dataset
 
