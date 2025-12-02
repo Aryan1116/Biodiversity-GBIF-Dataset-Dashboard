@@ -11,6 +11,8 @@ from folium.plugins import MarkerCluster, HeatMap
 # Set page configuration
 st.set_page_config(page_title="Biodiversity Dashboard", layout="wide")
 
+
+
 # --- Data Loading ---
 @st.cache_data
 def load_data():
@@ -50,7 +52,7 @@ st.sidebar.header("Filters")
 
 # Country Filter
 all_countries = sorted(df['countryCode'].dropna().unique())
-selected_countries = st.sidebar.multiselect("Select Country", all_countries, default=all_countries[:5] if len(all_countries) > 5 else all_countries)
+selected_countries = st.sidebar.multiselect("Select Country", all_countries, default=[])
 
 # Year Filter
 min_year = int(df['year'].min())
@@ -59,13 +61,17 @@ selected_year_range = st.sidebar.slider("Select Year Range", min_year, max_year,
 
 # Kingdom Filter
 all_kingdoms = sorted(df['kingdom'].dropna().unique())
-selected_kingdoms = st.sidebar.multiselect("Select Kingdom", all_kingdoms, default=all_kingdoms)
+selected_kingdoms = st.sidebar.multiselect("Select Kingdom", all_kingdoms, default=[])
 
 # Filter Data
+# Handle empty selection as "All"
+countries_to_filter = selected_countries if selected_countries else all_countries
+kingdoms_to_filter = selected_kingdoms if selected_kingdoms else all_kingdoms
+
 filtered_df = df[
-    (df['countryCode'].isin(selected_countries)) &
+    (df['countryCode'].isin(countries_to_filter)) &
     (df['year'].between(selected_year_range[0], selected_year_range[1])) &
-    (df['kingdom'].isin(selected_kingdoms))
+    (df['kingdom'].isin(kingdoms_to_filter))
 ]
 
 st.sidebar.markdown(f"**Total Observations:** {len(filtered_df)}")
@@ -115,71 +121,88 @@ with tab1:
                           title="Taxonomic Hierarchy")
         st.plotly_chart(fig, use_container_width=True)
 
-# --- Tab 5: Data Statistics (Missing EDA Plots) ---
-with st.expander("Advanced Data Statistics (Boxplots & Violin Plots)"):
-    st.header("Data Distribution Statistics")
-    
-    if not filtered_df.empty:
-        top_10_classes = filtered_df['class'].value_counts().head(10).index
-        df_top = filtered_df[filtered_df['class'].isin(top_10_classes)]
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Latitude Distribution (Boxplot)")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.boxplot(data=df_top, x='class', y='decimalLatitude', ax=ax)
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
-            
-            st.subheader("Longitude Distribution (Boxplot)")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.boxplot(data=df_top, x='class', y='decimalLongitude', ax=ax)
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
 
-        with col2:
-            st.subheader("Latitude Distribution (Violin Plot)")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.violinplot(data=df_top, x='class', y='decimalLatitude', ax=ax)
-            plt.xticks(rotation=45)
-            st.pyplot(fig)
+
+    # --- Tab 5: Data Statistics (Missing EDA Plots) ---
+    with st.expander("Advanced Data Statistics (Boxplots & Violin Plots)"):
+        st.header("Data Distribution Statistics")
+        
+        if not filtered_df.empty:
+            top_10_classes = filtered_df['class'].value_counts().head(10).index
+            df_top = filtered_df[filtered_df['class'].isin(top_10_classes)]
             
-            if 'coordinateUncertaintyInMeters' in df_top.columns:
-                st.subheader("Coordinate Uncertainty (Log Scale)")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Latitude Distribution (Boxplot)")
                 fig, ax = plt.subplots(figsize=(10, 6))
-                sns.boxplot(data=df_top, x='class', y='coordinateUncertaintyInMeters', ax=ax)
-                ax.set_yscale("log")
+                sns.boxplot(data=df_top, x='class', y='decimalLatitude', ax=ax)
                 plt.xticks(rotation=45)
                 st.pyplot(fig)
-    else:
-        st.info("No data available for statistics.")
+                
+                st.subheader("Longitude Distribution (Boxplot)")
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.boxplot(data=df_top, x='class', y='decimalLongitude', ax=ax)
+                plt.xticks(rotation=45)
+                st.pyplot(fig)
+    
+            with col2:
+                st.subheader("Latitude Distribution (Violin Plot)")
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.violinplot(data=df_top, x='class', y='decimalLatitude', ax=ax)
+                plt.xticks(rotation=45)
+                st.pyplot(fig)
+                
+                if 'coordinateUncertaintyInMeters' in df_top.columns:
+                    st.subheader("Coordinate Uncertainty (Log Scale)")
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    sns.boxplot(data=df_top, x='class', y='coordinateUncertaintyInMeters', ax=ax)
+                    ax.set_yscale("log")
+                    plt.xticks(rotation=45)
+                    st.pyplot(fig)
+        else:
+            st.info("No data available for statistics.")
 
 # --- Tab 2: Temporal Trends ---
 with tab2:
     st.header("Temporal Trends")
     
     if not filtered_df.empty:
-        col1, col2 = st.columns(2)
+        # Country Selector for Tab 2
+        available_countries = sorted(filtered_df['countryCode'].unique())
+        country_options = ["All"] + available_countries
         
-        with col1:
-            st.subheader("Observations per Month (Seasonality)")
-            # Get top 10 classes for cleaner plot
-            top_10_classes = filtered_df['class'].value_counts().head(10).index
-            df_top_classes = filtered_df[filtered_df['class'].isin(top_10_classes)]
+        selected_country_tab2 = st.selectbox("Select Country for Temporal Analysis", country_options, key="tab2_country")
+        
+        if selected_country_tab2 != "All":
+            tab2_df = filtered_df[filtered_df['countryCode'] == selected_country_tab2]
+        else:
+            tab2_df = filtered_df
             
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.countplot(data=df_top_classes, x='month', hue='class', ax=ax)
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            st.pyplot(fig)
+        if not tab2_df.empty:
+            col1, col2 = st.columns(2)
             
-        with col2:
-            st.subheader("Observations Trend Over Years")
-            year_counts = filtered_df.groupby('year').size()
-            fig, ax = plt.subplots(figsize=(10, 5))
-            sns.lineplot(x=year_counts.index, y=year_counts.values, ax=ax)
-            ax.set_ylabel("Number of Observations")
-            st.pyplot(fig)
+            with col1:
+                st.subheader(f"Observations per Month ({selected_country_tab2})")
+                # Get top 10 classes for cleaner plot
+                top_10_classes = tab2_df['class'].value_counts().head(10).index
+                df_top_classes = tab2_df[tab2_df['class'].isin(top_10_classes)]
+                
+                fig, ax = plt.subplots(figsize=(10, 5))
+                sns.countplot(data=df_top_classes, x='month', hue='class', ax=ax)
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                st.pyplot(fig)
+                
+            with col2:
+                st.subheader(f"Observations Trend Over Years ({selected_country_tab2})")
+                year_counts = tab2_df.groupby('year').size()
+                fig, ax = plt.subplots(figsize=(10, 5))
+                sns.lineplot(x=year_counts.index, y=year_counts.values, ax=ax)
+                ax.set_ylabel("Number of Observations")
+                st.pyplot(fig)
+        else:
+             st.info(f"No data available for {selected_country_tab2} with current filters.")
+
     else:
         st.info("No data available.")
 
@@ -203,12 +226,11 @@ with tab3:
         if not filtered_df.empty:
             # Using Folium for Heatmap
             map_center = [filtered_df['decimalLatitude'].mean(), filtered_df['decimalLongitude'].mean()]
-            m = folium.Map(location=map_center, zoom_start=2)
+            m = folium.Map(location=map_center, zoom_start=2, tiles='CartoDB positron')
             
             heat_data = [[row['decimalLatitude'], row['decimalLongitude']] for index, row in filtered_df.iterrows()]
             # Limit points for performance if too many
             if len(heat_data) > 5000:
-                st.warning("Heatmap downsampled to 5000 points for performance.")
                 heat_data = heat_data[:5000]
                 
             HeatMap(heat_data).add_to(m)
@@ -271,7 +293,7 @@ with tab4:
         
         if not species_df.empty:
             # Folium Map with Markers
-            m2 = folium.Map(location=[species_df['decimalLatitude'].mean(), species_df['decimalLongitude'].mean()], zoom_start=4)
+            m2 = folium.Map(location=[species_df['decimalLatitude'].mean(), species_df['decimalLongitude'].mean()], zoom_start=4, tiles='CartoDB positron')
             marker_cluster = MarkerCluster().add_to(m2)
             
             for idx, row in species_df.iterrows():
@@ -282,6 +304,16 @@ with tab4:
                 ).add_to(marker_cluster)
             
             st_folium(m2, width=800, height=600)
+            
+            st.subheader("Species Image URL")
+            # Get the first occurrence with a valid occurrenceID
+            image_row = species_df[species_df['occurrenceID'].notna()].head(1)
+            
+            if not image_row.empty:
+                image_url = image_row['occurrenceID'].values[0]
+                st.markdown(f"**URL:** {image_url}")
+            else:
+                st.write("image url not available in the dataset")
             
             st.subheader("Raw Data")
             st.dataframe(species_df)
